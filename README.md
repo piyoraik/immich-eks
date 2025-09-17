@@ -23,11 +23,12 @@ All applications are managed as Argo CD `Application` resources for GitOps-style
 
 ## Deployment Steps
 
-1.  **Create Storage Resources:**
+1.  **Create Namespace and Storage Resources:**
 
-    Apply the `StorageClass` and `PersistentVolumeClaim` manifests. This will set up the necessary storage for Immich and its database.
+    Apply the namespace, `StorageClass`, and `PersistentVolumeClaim` manifests. This will create the `immich` namespace and set up the necessary storage.
 
     ```bash
+    kubectl apply -f namespace.yaml
     kubectl apply -f storageClass.yaml
     kubectl apply -f immichStorage.yaml
     ```
@@ -44,6 +45,7 @@ All applications are managed as Argo CD `Application` resources for GitOps-style
 
 ## File Descriptions
 
+- `namespace.yaml`: Creates the `immich` namespace where all resources will be deployed.
 - `storageClass.yaml`: Defines a default `StorageClass` named `auto-ebs-sc` that uses the `ebs.csi.eks.amazonaws.com` provisioner. This is intended for use with the EKS Auto Mode for the EBS CSI driver, which simplifies dynamic volume provisioning.
 - `immichStorage.yaml`: Creates a `PersistentVolumeClaim` named `immich-library` for storing Immich's photo and video library.
 - `argocd/`: This directory contains the Argo CD `Application` manifests.
