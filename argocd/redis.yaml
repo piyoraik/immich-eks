@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: redis
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: redis
+    # バージョンは必要なら固定して。例: "19.6.0" / ">=19.0.0 <20.0.0"
+    targetRevision: ">19.0.0"
+    helm:
+      releaseName: redis
+      values: |
+        architecture: standalone
+
+        # 検証なので認証オフ（本番は true 推奨）
+        auth:
+          enabled: false
+
+        master:
+          persistence:
+            enabled: false   # 揮発。必要なら true にして storageClass/size を指定
+
+        # 余裕があれば最低限のリソースを置く（任意）
+        # master:
+        #   resources:
+        #     requests:
+        #       cpu: 100m
+        #       memory: 128Mi
+        #     limits:
+        #       cpu: 500m
+        #       memory: 512Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

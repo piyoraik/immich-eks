@@ -1,0 +1,70 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich-postgres
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  project: default
+  source:
+    repoURL: https://bjw-s-labs.github.io/helm-charts
+    chart: app-template
+    targetRevision: 4.2.0
+    helm:
+      releaseName: immich-postgres
+      values: |
+        controllers:
+          postgres:
+            type: statefulset
+            containers:
+              app:
+                image:
+                  repository: ghcr.io/immich-app/postgres
+                  tag: 16-vectorchord0.3.0
+                  pullPolicy: IfNotPresent
+                env:
+                  - name: POSTGRES_DB
+                    value: immich
+                  - name: POSTGRES_USER
+                    value: immich
+                  - name: POSTGRES_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: immich-postgres
+                        key: POSTGRES_PASSWORD
+                probes:
+                  liveness:  { enabled: true, type: TCP, port: 5432 }
+                  readiness: { enabled: true, type: TCP, port: 5432 }
+
+        service:
+          main:
+            controller: postgres
+            ports:
+              pg: { port: 5432, protocol: TCP }
+
+        persistence:
+          data:
+            enabled: true
+            type: persistentVolumeClaim
+            accessMode: ReadWriteOnce
+            size: 20Gi
+            globalMounts:
+              - path: /var/lib/postgresql/data
+                subPath: pgdata
+
+        secrets:
+          immich-db-secret:
+            stringData:
+              POSTGRES_PASSWORD: "change-me-strong"
+
+        fullnameOverride: immich-postgres
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,69 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://immich-app.github.io/immich-charts
+    chart: immich
+    targetRevision: 0.8.4
+    helm:
+      releaseName: immich
+      values: |
+        postgresql:
+          enabled: false
+        redis:
+          enabled: false
+
+        # ライブラリ用の既存PVCを指定
+        immich:
+          persistence:
+            library:
+              existingClaim: immich-library
+
+        # server（本体）にだけ環境変数を与える
+        server:
+          image:
+            tag: v1.133.0
+          env:
+            # DBはURL優先で動く。念のためHOSTNAMEも外部に合わせて上書きする
+            DB_URL: "postgresql://immich:change-me-strong@immich-postgres.immich.svc:5432/immich?sslmode=disable"
+            DB_HOSTNAME: "immich-postgres.immich.svc"
+
+            # RedisはHOSTNAMEを上書きしないと内蔵名を参照し続ける
+            REDIS_HOSTNAME: "redis-master.immich.svc"
+            REDIS_HOST: "redis-master.immich.svc"
+            REDIS_PORT: "6379"
+
+          # 起動安定のため probe を少し緩める
+          probes:
+            startup:
+              enabled: true
+              path: /api/server/ping
+              initialDelaySeconds: 20
+              periodSeconds: 10
+              failureThreshold: 30
+            readiness:
+              enabled: true
+              path: /api/server/ping
+              initialDelaySeconds: 20
+              periodSeconds: 5
+              failureThreshold: 12
+            liveness:
+              enabled: true
+              path: /api/server/ping
+              initialDelaySeconds: 40
+              periodSeconds: 10
+              failureThreshold: 6
+
+        # ML は既に動いてるので明示不要だが、固定したいなら
+        machineLearning:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
